@@ -16,18 +16,30 @@ pipeline {
 	stages {
 
 		stage('Check if Environment exists') {
-                	when {
-                    		expression{
-                        		params.enableCleanUp == true
-                    		}
-                	}
-			steps {
-                		echo "Checking is the environments exists before starting with cleanup..."
-                		sshagent(['k8-server']){
-                        		sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl get namespace k8-task"'
-                        	}
-                	}
-		}
+			steps{
+				script{
+               				try {
+                        			sshagent(['k8-server']) {
+                            				def result = sh(
+                                				script: 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl get namespace k8-task"',
+                                				returnStatus: true
+                            				)
+                            				if (result == 0) {
+                                				echo 'Environment exists. Skipping to cleanup approval stage.'
+                                				buildCleanupApprovalStage()
+                            				} else {
+                                				echo 'Environment does not exist. Proceeding with all stages.'
+                                				buildAllStages()
+                            				}
+                        			}
+                    			} catch (Exception e) {
+                        			echo 'Error occurred while checking the environment.'
+                        			currentBuild.result = 'FAILURE'
+                    			}
+                		}
+            		}
+        	}
+    }
         
 		stage('Build') {
 	    		when {
