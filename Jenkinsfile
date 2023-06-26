@@ -99,6 +99,11 @@ pipeline {
             	}
 
 		stage('Cleanup'){
+                	when {
+                    		expression{
+                        		params.enableCleanUp == true
+                    		}
+                	}
 			steps {
   	              		sshagent(['k8-server']){
                       			sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl delete ns k8-task"'
