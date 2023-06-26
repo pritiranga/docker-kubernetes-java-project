@@ -84,11 +84,6 @@ pipeline {
 		}
 
 		stage('Clean Up Approval'){
-			when {
-                    		expression{
-                        		params.enableCleanUp == true
-                    		}
-                	}
                 	steps{              
                 	    	script {
                         		timeout(time: 10, unit: 'MINUTES'){
