@@ -18,7 +18,7 @@ pipeline {
 		stage('Check if Environment exists') {
                 	when {
                     		expression{
-                        		params.enableCleanUp == false
+                        		params.enableCleanUp == true
                     		}
                 	}
 			steps {
@@ -32,7 +32,7 @@ pipeline {
 		stage('Build') {
 	    		when {
                     		expression{
-                        		params.enableCleanUp == true
+                        		params.enableCleanUp == false
                     		}
                 	}
             		steps {
@@ -43,7 +43,7 @@ pipeline {
 		stage('Publish to Dockerhub') {
 			when {
                     		expression{
-                        		params.enableCleanUp == true
+                        		params.enableCleanUp == false
                     		}
                 	}
             		steps{
@@ -56,7 +56,7 @@ pipeline {
 		stage('Creating namespace on k8 cluster') {
                 	when {
                     		expression{
-                    		    	params.enableCleanUp == true
+                    		    	params.enableCleanUp == false
                     		}
                 	}
 			steps {
@@ -69,7 +69,7 @@ pipeline {
 		stage('Deploy application') {
                 	when {
                    		expression{
-                        		params.enableCleanUp == true
+                        		params.enableCleanUp == false
                     		}
                 	}
 			steps {
@@ -86,7 +86,7 @@ pipeline {
 		stage('Clean Up Approval'){
 			when {
                     		expression{
-                        		params.enableCleanUp == false
+                        		params.enableCleanUp == true
                     		}
                 	}
                 	steps{              
@@ -96,7 +96,14 @@ pipeline {
                         		}
                     		}        
                 	} 
-            	}			
+            	}
+
+		stage('Cleanup'){
+			steps {
+  	              		sshagent(['k8-server']){
+                      			sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl delete ns k8-task"'
+		      		}
+			}
 
     } //stages
 } //pipeline
