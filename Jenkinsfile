@@ -24,6 +24,27 @@ pipeline {
                 sh 'docker push pritidevops/k8_app:latest'
             }
         }
-       
+
+	stage('Creating namespace on k8 cluster') {
+		steps {
+  	              sshagent(['k8-server']){
+                      	sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl create ns k8-task"'
+		      }
+		}
+	}
+
+	stage('Deploy application') {
+		steps {
+			sshagent(['k8-server']){
+				kubernetesDeploy(
+                        		configs: 'k8-task.yml',
+                        		kubeconfigId: 'kubeconfig',
+                        		enableConfigSubstitution: true 
+                    		)
+			}
+		}
+	}
+				
+
     }
 }
