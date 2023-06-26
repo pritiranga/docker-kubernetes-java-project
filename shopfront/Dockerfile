@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Copy the project's POM and source files to the container
 COPY shopfront/pom.xml .
-COPY src ./src
+COPY shopfront/src ./src
 
 # Build the project
 RUN mvn clean package
