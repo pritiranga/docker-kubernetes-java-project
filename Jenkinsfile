@@ -37,7 +37,7 @@ pipeline {
 		steps {
 			sshagent(['k8-server']){
 				kubernetesDeploy(
-                        		configs: 'k8-task.yml',
+                        		configs: 'shopfront/k8-task.yml',
                         		kubeconfigId: 'kubeconfig',
                         		enableConfigSubstitution: true 
                     		)
