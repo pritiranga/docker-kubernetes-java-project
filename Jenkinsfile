@@ -104,6 +104,7 @@ pipeline {
                       			sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl delete ns k8-task"'
 		      		}
 			}
+		}
 
     } //stages
 } //pipeline
