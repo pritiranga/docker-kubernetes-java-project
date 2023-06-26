@@ -18,7 +18,7 @@ pipeline {
 		stage('Check if Environment exists') {
                 	when {
                     		expression{
-                        		params.enableCleanUp == true
+                        		params.enableCleanUp == false
                     		}
                 	}
 			steps {
@@ -32,7 +32,7 @@ pipeline {
 		stage('Build') {
 	    		when {
                     		expression{
-                        		params.enableCleanUp == false
+                        		params.enableCleanUp == true
                     		}
                 	}
             		steps {
@@ -43,7 +43,7 @@ pipeline {
 		stage('Publish to Dockerhub') {
 			when {
                     		expression{
-                        		params.enableCleanUp == false
+                        		params.enableCleanUp == true
                     		}
                 	}
             		steps{
@@ -56,7 +56,7 @@ pipeline {
 		stage('Creating namespace on k8 cluster') {
                 	when {
                     		expression{
-                    		    	params.enableCleanUp == false
+                    		    	params.enableCleanUp == true
                     		}
                 	}
 			steps {
@@ -69,7 +69,7 @@ pipeline {
 		stage('Deploy application') {
                 	when {
                    		expression{
-                        		params.enableCleanUp == false
+                        		params.enableCleanUp == true
                     		}
                 	}
 			steps {
@@ -86,7 +86,7 @@ pipeline {
 		stage('Clean Up Approval'){
 			when {
                     		expression{
-                        		params.enableCleanUp == true
+                        		params.enableCleanUp == false
                     		}
                 	}
                 	steps{              
