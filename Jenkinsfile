@@ -120,4 +120,4 @@ pipeline {
             }
         }
     } //stages closing
-} /pipeline closing
+} //pipeline closing
