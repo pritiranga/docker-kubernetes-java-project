@@ -19,72 +19,107 @@ pipeline {
 
     stages {
         stage('Check if Environment exists') {
-            steps {
-                script {
-                    try {
-                        sshagent(['k8-server']) {
-                            def result = sh(
-                                script: 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl get namespace k8-task"',
-                                returnStatus: true
-                            )
-                            if (result == 0) {
-                                echo 'Environment exists. Skipping to cleanup approval stage.'
-                                return
-                            }
-                        }
-                    } catch (Exception e) {
-                        echo 'Error checking if environment exists: ' + e.getMessage()
-                        currentBuild.result = 'FAILURE'
-                        error "Error checking if environment exists: ${e.getMessage()}"
-                    }
-                }
-            }
-        }
-
-        stage('Cleanup Approval') {
             when {
-                expression { params.enableCleanUp }
-            }
-            steps {
-                script {
-                    timeout(time: 1, unit: 'HOURS') {
-                        input message: 'Do you want to cleanup the environment?', ok: 'Yes', rejectValue: 'No'
-                    }
+                expression{
+                    params.enableCleanUp == true
                 }
             }
-        }
 
+            steps {
+                echo "Checking is the environments exists before starting woth cleanup..."
+                    sshagent(['k8-config']){
+                        sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl get namespace staging prod"'
+                    }
+                }
+            }  
+
+    
         stage('Build') {
+            when {
+                expression{
+                    params.enableCleanUp == false
+                }
+            }
+
             steps {
-                sh 'mvn clean package'
+                sh 'docker build -t k8_app:latest -f shopfront/Dockerfile .'
             }
         }
 
-        stage('Docker Build & Push') {
+        stage('Publish to Dockerhub') {
+            when {
+                expression{
+                    params.enableCleanUp == false
+                }
+            }
+
+            steps {
+                sh 'docker tag k8_app:latest pritidevops/k8_app:latest'
+                sh 'echo $DOCKERHUB_PSW | docker login -u $DOCKERHUB_USR --password-stdin'
+                sh 'docker push pritidevops/k8_app:latest'
+            }
+        }
+
+        stage('Creating namespace on k8 cluster') {
+            when {
+                expression{
+                    params.enableCleanUp == false
+                }
+            }
+
+            steps {
+                sshagent(['k8-server']) {
+                    sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl create ns k8-task"'
+                }
+            }
+        }
+
+        stage('Deploy application') {
+            when {
+                expression{
+                    params.enableCleanUp == false
+                }     
+            }
+
+            steps {
+                sshagent(['k8-server']) {
+                    kubernetesDeploy(
+                        configs: 'shopfront/k8-task.yml',
+                        kubeconfigId: 'kubeconfig',
+                        enableConfigSubstitution: true 
+                    )
+                }
+            }
+        }
+
+        stage('Clean Up Approval') {
+            when {
+                expression{
+                    params.enableCleanUp == true
+                }
+            }
+
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'DOCKERHUB', variable: 'DOCKERHUB_CRED')]) {
-                        sh '''
-                            docker build -t my-image:${env.BUILD_NUMBER} .
-                            docker login -u my-dockerhub-user -p $DOCKERHUB_CRED
-                            docker push my-image:${env.BUILD_NUMBER}
-                        '''
+                    timeout(time: 10, unit: 'MINUTES') {
+                        input ('Proceed with Environment CleanUp?')
                     }
                 }
             }
         }
 
-        stage('Deploy') {
+        stage('Cleanup') {
+            when {
+                expression{
+                    params.enableCleanUp == true
+                }
+            }
+
             steps {
-                script {
-                    sshagent(['k8-server']) {
-                        sh '''
-                            kubectl apply -f deployment.yaml
-                            kubectl rollout status deployment/my-app
-                        '''
-                    }
+                sshagent(['k8-server']) {
+                    sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl delete ns k8-task"'
                 }
             }
         }
-    }
-}
+    }    //stages closing
+}    //pipeline closing
