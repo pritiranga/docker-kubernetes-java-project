@@ -1,3 +1,59 @@
+def buildAllStages() {
+    stage('Build') {
+        when {
+            expression {
+                params.enableCleanUp == false
+            }
+        }
+        steps {
+            sh 'docker build -t k8_app:latest -f shopfront/Dockerfile .'
+        }
+    }
+
+    stage('Publish to Dockerhub') {
+        when {
+            expression {
+                params.enableCleanUp == false
+            }
+        }
+        steps {
+            sh 'docker tag k8_app:latest pritidevops/k8_app:latest'
+            sh 'echo $DOCKERHUB_PSW | docker login -u $DOCKERHUB_USR --password-stdin'
+            sh 'docker push pritidevops/k8_app:latest'
+        }
+    }
+
+    stage('Creating namespace on k8 cluster') {
+        when {
+            expression {
+                params.enableCleanUp == false
+            }
+        }
+        steps {
+            sshagent(['k8-server']) {
+                sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl create ns k8-task"'
+            }
+        }
+    }
+
+    stage('Deploy application') {
+        when {
+            expression {
+                params.enableCleanUp == false
+            }
+        }
+        steps {
+            sshagent(['k8-server']) {
+                kubernetesDeploy(
+                    configs: 'shopfront/k8-task.yml',
+                    kubeconfigId: 'kubeconfig',
+                    enableConfigSubstitution: true
+                )
+            }
+        }
+    }
+}
+
 pipeline {
     agent any
 
@@ -39,62 +95,6 @@ pipeline {
             }
         }
 
-        def buildAllStages() {
-            stage('Build') {
-                when {
-                    expression {
-                        params.enableCleanUp == false
-                    }
-                }
-                steps {
-                    sh 'docker build -t k8_app:latest -f shopfront/Dockerfile .'
-                }
-            }
-
-            stage('Publish to Dockerhub') {
-                when {
-                    expression {
-                        params.enableCleanUp == false
-                    }
-                }
-                steps {
-                    sh 'docker tag k8_app:latest pritidevops/k8_app:latest'
-                    sh 'echo $DOCKERHUB_PSW | docker login -u $DOCKERHUB_USR --password-stdin'
-                    sh 'docker push pritidevops/k8_app:latest'
-                }
-            }
-
-            stage('Creating namespace on k8 cluster') {
-                when {
-                    expression {
-                        params.enableCleanUp == false
-                    }
-                }
-                steps {
-                    sshagent(['k8-server']) {
-                        sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl create ns k8-task"'
-                    }
-                }
-            }
-
-            stage('Deploy application') {
-                when {
-                    expression {
-                        params.enableCleanUp == false
-                    }
-                }
-                steps {
-                    sshagent(['k8-server']) {
-                        kubernetesDeploy(
-                            configs: 'shopfront/k8-task.yml',
-                            kubeconfigId: 'kubeconfig',
-                            enableConfigSubstitution: true
-                        )
-                    }
-                }
-            }
-        }
-
         def buildCleanupApprovalStage() {
             stage('Clean Up Approval') {
                 steps {
@@ -119,5 +119,5 @@ pipeline {
                 }
             }
         }
-    } //stages closing
-} //pipeline closing
+    }
+}
