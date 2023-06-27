@@ -28,7 +28,7 @@ pipeline {
             steps {
                 echo "Checking is the environments exists before starting woth cleanup..."
                     sshagent(['k8-config']){
-                        sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl get namespace staging prod"'
+                        sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl get namespace k8-task"'
                     }
                 }
             }  
