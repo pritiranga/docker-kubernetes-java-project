@@ -39,8 +39,9 @@ pipeline {
                 		}
             		}
         	}
-    }
-        
+    	}
+
+	def buildAllStages() {
 		stage('Build') {
 	    		when {
                     		expression{
@@ -94,7 +95,9 @@ pipeline {
 				}
 			}
 		}
+	}
 
+	def buildCleanupApprovalStage() {
 		stage('Clean Up Approval'){
                 	steps{              
                 	    	script {
@@ -105,6 +108,7 @@ pipeline {
                 	} 
             	}
 
+	def buildCleanupApprovalStage() {
 		stage('Cleanup'){
                 	when {
                     		expression{
@@ -117,6 +121,7 @@ pipeline {
 		      		}
 			}
 		}
+	}
 
     } //stages
 } //pipeline
