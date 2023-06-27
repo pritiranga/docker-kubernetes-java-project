@@ -1,59 +1,3 @@
-def buildAllStages() {
-    stage('Build') {
-        when {
-            expression {
-                params.enableCleanUp == false
-            }
-        }
-        steps {
-            sh 'docker build -t k8_app:latest -f shopfront/Dockerfile .'
-        }
-    }
-
-    stage('Publish to Dockerhub') {
-        when {
-            expression {
-                params.enableCleanUp == false
-            }
-        }
-        steps {
-            sh 'docker tag k8_app:latest pritidevops/k8_app:latest'
-            sh 'echo $DOCKERHUB_PSW | docker login -u $DOCKERHUB_USR --password-stdin'
-            sh 'docker push pritidevops/k8_app:latest'
-        }
-    }
-
-    stage('Creating namespace on k8 cluster') {
-        when {
-            expression {
-                params.enableCleanUp == false
-            }
-        }
-        steps {
-            sshagent(['k8-server']) {
-                sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl create ns k8-task"'
-            }
-        }
-    }
-
-    stage('Deploy application') {
-        when {
-            expression {
-                params.enableCleanUp == false
-            }
-        }
-        steps {
-            sshagent(['k8-server']) {
-                kubernetesDeploy(
-                    configs: 'shopfront/k8-task.yml',
-                    kubeconfigId: 'kubeconfig',
-                    enableConfigSubstitution: true
-                )
-            }
-        }
-    }
-}
-
 pipeline {
     agent any
 
@@ -66,7 +10,11 @@ pipeline {
     }
 
     parameters {
-        booleanParam(name: 'enableCleanUp', defaultValue: false, description: 'Select to clean the environments')
+        booleanParam(
+            name: 'enableCleanUp',
+            defaultValue: false,
+            description: 'Select to clean the environments'
+        )
     }
 
     stages {
@@ -81,41 +29,60 @@ pipeline {
                             )
                             if (result == 0) {
                                 echo 'Environment exists. Skipping to cleanup approval stage.'
-                                buildCleanupApprovalStage()
-                            } else {
-                                echo 'Environment does not exist. Proceeding with all stages.'
-                                buildAllStages()
+                                return
                             }
                         }
                     } catch (Exception e) {
-                        echo 'Error occurred while checking the environment.'
+                        echo 'Error checking if environment exists: ' + e.getMessage()
                         currentBuild.result = 'FAILURE'
+                        error "Error checking if environment exists: ${e.getMessage()}"
                     }
                 }
             }
         }
 
-        def buildCleanupApprovalStage() {
-            stage('Clean Up Approval') {
-                steps {
-                    script {
-                        timeout(time: 10, unit: 'MINUTES') {
-                            input('Proceed with Environment CleanUp?')
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Cleanup') {
+        stage('Cleanup Approval') {
             when {
-                expression {
-                    params.enableCleanUp == true
-                }
+                expression { params.enableCleanUp }
             }
             steps {
-                sshagent(['k8-server']) {
-                    sh 'ssh -o StrictHostKeyChecking=no devsecops1@192.168.6.77 "kubectl delete ns k8-task"'
+                script {
+                    timeout(time: 1, unit: 'HOURS') {
+                        input message: 'Do you want to cleanup the environment?', ok: 'Yes', rejectValue: 'No'
+                    }
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'DOCKERHUB', variable: 'DOCKERHUB_CRED')]) {
+                        sh '''
+                            docker build -t my-image:${env.BUILD_NUMBER} .
+                            docker login -u my-dockerhub-user -p $DOCKERHUB_CRED
+                            docker push my-image:${env.BUILD_NUMBER}
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    sshagent(['k8-server']) {
+                        sh '''
+                            kubectl apply -f deployment.yaml
+                            kubectl rollout status deployment/my-app
+                        '''
+                    }
                 }
             }
         }
